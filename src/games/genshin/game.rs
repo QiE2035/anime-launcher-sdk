@@ -13,6 +13,7 @@ use crate::config::ConfigExt;
 use crate::genshin::config::Config;
 use crate::config::schema_blanks::prelude::{AllowedDrives, WineDrives};
 use crate::genshin::consts;
+use crate::genshin::config::schema::game::touch::INJECTOR_NAME;
 #[cfg(feature = "fps-unlocker")]
 use super::fps_unlocker::FpsUnlocker;
 #[cfg(feature = "sessions")]
@@ -60,6 +61,21 @@ pub fn run() -> anyhow::Result<bool> {
 
     if !game_path.exists() {
         return Err(anyhow::anyhow!("Game is not installed"));
+    }
+
+    // Touch support is temporarily incompatible with the Winewayland driver,
+    // and the injector binaries have to be present before we start anything
+    if config.game.enhancements.touch.enabled {
+        if config.game.wine.winewayland {
+            anyhow::bail!("Touch support is not compatible with the Winewayland driver");
+        }
+
+        if !config.game.enhancements.touch.is_installed() {
+            anyhow::bail!(
+                "Touch support binaries are not found in {}",
+                config.game.enhancements.touch.path.display()
+            );
+        }
     }
 
     let Some(wine) = config.get_selected_wine()?
@@ -259,6 +275,20 @@ pub fn run() -> anyhow::Result<bool> {
         None => format!("{bash_command} {windows_command} {launch_args}")
     };
 
+    // The game is started on the Unix side by the command above, and the
+    // injector only attaches to it afterwards
+    if config.game.enhancements.touch.enabled
+        // Don't inject twice if the user already wired the injector manually
+        && !bash_command.contains(INJECTOR_NAME)
+    {
+        let injector = config.game.enhancements.touch.injector();
+
+        bash_command = format!(
+            "{bash_command} & {run_command} '{}'",
+            injector.to_string_lossy()
+        );
+    }
+
     // bwrap <params> -- <command to run>
     #[cfg(feature = "sandbox")]
     if config.sandbox.enabled {
@@ -281,6 +311,13 @@ pub fn run() -> anyhow::Result<bool> {
                 bwrap += &format!(" --bind {fps_unlocker_dir} /tmp/sandbox/fps-unlocker");
                 bash_command = bash_command.replace(&fps_unlocker_dir, "/tmp/sandbox/fps-unlocker");
             }
+        }
+
+        if config.game.enhancements.touch.enabled {
+            let touch_dir = config.game.enhancements.touch.path.to_string_lossy().into_owned();
+
+            bwrap += &format!(" --bind {touch_dir} /tmp/sandbox/touch");
+            bash_command = bash_command.replace(&touch_dir, "/tmp/sandbox/touch");
         }
 
         bash_command = bash_command
@@ -500,6 +537,7 @@ pub fn run() -> anyhow::Result<bool> {
         if !output.contains("GenshinImpact.e")
             && !output.contains("YuanShen.exe")
             && !output.contains("fpsunlock.exe")
+            && !output.contains("hk4e-touch")
         {
             break;
         }

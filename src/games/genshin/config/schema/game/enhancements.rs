@@ -6,6 +6,8 @@ use crate::config::schema_blanks::prelude::*;
 #[cfg(feature = "fps-unlocker")]
 use super::FpsUnlocker;
 
+use super::Touch;
+
 #[derive(Default, Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Enhancements {
     pub fsr: Fsr,
@@ -15,7 +17,9 @@ pub struct Enhancements {
     #[cfg(feature = "fps-unlocker")]
     pub fps_unlocker: FpsUnlocker,
 
-    pub gamescope: Gamescope
+    pub gamescope: Gamescope,
+
+    pub touch: Touch
 }
 
 impl From<&JsonValue> for Enhancements {
@@ -42,7 +46,11 @@ impl From<&JsonValue> for Enhancements {
 
             gamescope: value.get("gamescope")
                 .map(Gamescope::from)
-                .unwrap_or(default.gamescope)
+                .unwrap_or(default.gamescope),
+
+            touch: value.get("touch")
+                .map(Touch::from)
+                .unwrap_or(default.touch)
         }
     }
 }

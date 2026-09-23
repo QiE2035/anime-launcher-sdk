@@ -12,6 +12,7 @@ crate::config_impl_dxvk_schema!(launcher_dir);
 
 pub mod paths;
 pub mod enhancements;
+pub mod touch;
 
 #[cfg(feature = "fps-unlocker")]
 pub mod fps_unlocker;
@@ -25,6 +26,7 @@ pub mod prelude {
 
     pub use super::paths::Paths;
     pub use super::enhancements::Enhancements;
+    pub use super::touch::Touch;
 
     #[cfg(feature = "fps-unlocker")]
     pub use super::fps_unlocker::FpsUnlocker;
